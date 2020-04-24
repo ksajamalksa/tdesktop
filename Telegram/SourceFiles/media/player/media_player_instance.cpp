@@ -335,6 +335,25 @@ bool Instance::moveInPlaylist(
 	return false;
 }
 
+bool Instance::playByIndex(not_null<Data*> data, int idx) {
+	if (!data->playlistIndex) {
+		return false;
+	}
+	if (const auto item = itemByIndex(data, idx)) {
+		if (const auto media = item->media()) {
+			if (const auto document = media->document()) {
+				if (document->isAudioFile()
+					|| document->isVoiceMessage()
+					|| document->isVideoMessage()) {
+					play(AudioMsgId(document, item->fullId()));
+				}
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 bool Instance::previousAvailable(AudioMsgId::Type type) const {
 	const auto data = getData(type);
 	Assert(data != nullptr);
@@ -524,6 +543,10 @@ void Instance::resumeOnCall(AudioMsgId::Type type) {
 
 bool Instance::next(AudioMsgId::Type type) {
 	if (const auto data = getData(type)) {
+		if (data->shuffleEnabled) {
+			int randIdx = rand() % data->playlistSlice->size();
+			return playByIndex(data, randIdx);
+		}
 		return moveInPlaylist(data, 1, false);
 	}
 	return false;
@@ -531,6 +554,10 @@ bool Instance::next(AudioMsgId::Type type) {
 
 bool Instance::previous(AudioMsgId::Type type) {
 	if (const auto data = getData(type)) {
+		if (data->shuffleEnabled) {
+			int randIdx = rand() % data->playlistSlice->size();
+			return playByIndex(data, randIdx);
+		}
 		return moveInPlaylist(data, -1, false);
 	}
 	return false;
@@ -663,6 +690,11 @@ void Instance::emitUpdate(AudioMsgId::Type type, CheckCallback check) {
 		if (data->isPlaying && state.state == State::StoppedAtEnd) {
 			if (data->repeatEnabled) {
 				play(data->current);
+			} else if (data->shuffleEnabled) {
+				int randIdx = rand() % data->playlistSlice->size();
+				if (!playByIndex(data, randIdx)) {
+					_tracksFinishedNotifier.notify(type);
+				}
 			} else if (!moveInPlaylist(data, 1, true)) {
 				_tracksFinishedNotifier.notify(type);
 			}

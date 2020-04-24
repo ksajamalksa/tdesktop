@@ -110,6 +110,19 @@ public:
 		}
 	}
 
+	[[nodiscard]] bool shuffleEnabled(AudioMsgId::Type type) const {
+		if (const auto data = getData(type)) {
+			return data->shuffleEnabled;
+		}
+		return false;
+	}
+	void toggleShuffle(AudioMsgId::Type type) {
+		if (const auto data = getData(type)) {
+			data->shuffleEnabled = !data->shuffleEnabled;
+			_shuffleChangedNotifier.notify(type);
+		}
+	}
+
 	[[nodiscard]] bool isSeeking(AudioMsgId::Type type) const {
 		if (const auto data = getData(type)) {
 			return (data->seeking == data->current);
@@ -144,6 +157,9 @@ public:
 	}
 	base::Observable<AudioMsgId::Type> &repeatChangedNotifier() {
 		return _repeatChangedNotifier;
+	}
+	base::Observable<AudioMsgId::Type> &shuffleChangedNotifier() {
+		return _shuffleChangedNotifier;
 	}
 
 	rpl::producer<> playlistChanges(AudioMsgId::Type type) const;
@@ -184,6 +200,7 @@ private:
 		History *history = nullptr;
 		History *migrated = nullptr;
 		bool repeatEnabled = false;
+		bool shuffleEnabled = false;
 		bool isPlaying = false;
 		bool resumeOnCallEnd = false;
 		std::unique_ptr<Streamed> streamed;
@@ -216,6 +233,7 @@ private:
 	void validatePlaylist(not_null<Data*> data);
 	void playlistUpdated(not_null<Data*> data);
 	bool moveInPlaylist(not_null<Data*> data, int delta, bool autonext);
+	bool playByIndex(not_null<Data*> data, int idx);
 	HistoryItem *itemByIndex(not_null<Data*> data, int index);
 
 	void handleStreamingUpdate(
@@ -260,6 +278,7 @@ private:
 	base::Observable<AudioMsgId::Type> _tracksFinishedNotifier;
 	base::Observable<AudioMsgId::Type> _trackChangedNotifier;
 	base::Observable<AudioMsgId::Type> _repeatChangedNotifier;
+	base::Observable<AudioMsgId::Type> _shuffleChangedNotifier;
 
 	rpl::event_stream<bool> _playerWidgetToggled;
 	rpl::event_stream<TrackState> _updatedNotifier;
